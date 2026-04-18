@@ -1,1 +1,7 @@
-// main.js — students will add JavaScript here as features are built
+// main.js — shared client-side behaviour for Spendly.
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+});
