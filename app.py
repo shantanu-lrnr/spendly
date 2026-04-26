@@ -3,6 +3,10 @@ import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import check_password_hash
 from database.db import get_db, init_db, seed_db, create_user, get_user_by_email
+from database.queries import (
+    get_user_by_id, get_summary_stats,
+    get_recent_transactions, get_category_breakdown,
+)
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
@@ -116,39 +120,11 @@ def profile():
     if not session.get("user_id"):
         return redirect(url_for("login"))
 
-    user = {
-        "name": session.get("user_name", "Demo User"),
-        "email": "demo@spendly.com",
-        "member_since": "April 2026",
-        "initials": "DU",
-    }
-
-    stats = {
-        "total_spent": "327.99",
-        "transaction_count": 8,
-        "top_category": "Bills",
-    }
-
-    transactions = [
-        {"date": "2026-04-15", "description": "Grocery run",            "category": "Food",          "amount": "22.50"},
-        {"date": "2026-04-14", "description": "Miscellaneous",          "category": "Other",         "amount":  "9.99"},
-        {"date": "2026-04-12", "description": "Clothing",               "category": "Shopping",      "amount": "65.00"},
-        {"date": "2026-04-10", "description": "Streaming subscription", "category": "Entertainment", "amount": "18.00"},
-        {"date": "2026-04-08", "description": "Pharmacy",               "category": "Health",        "amount": "45.00"},
-        {"date": "2026-04-05", "description": "Electricity bill",       "category": "Bills",         "amount": "120.00"},
-        {"date": "2026-04-03", "description": "Monthly bus pass",       "category": "Transport",     "amount": "35.00"},
-        {"date": "2026-04-01", "description": "Lunch at cafe",          "category": "Food",          "amount": "12.50"},
-    ]
-
-    categories = [
-        {"name": "Bills",         "amount": "120.00", "percent": 37},
-        {"name": "Shopping",      "amount":  "65.00", "percent": 20},
-        {"name": "Health",        "amount":  "45.00", "percent": 14},
-        {"name": "Transport",     "amount":  "35.00", "percent": 11},
-        {"name": "Food",          "amount":  "35.00", "percent": 11},
-        {"name": "Entertainment", "amount":  "18.00", "percent":  5},
-        {"name": "Other",         "amount":   "9.99", "percent":  3},
-    ]
+    user_id = session["user_id"]
+    user         = get_user_by_id(user_id)
+    stats        = get_summary_stats(user_id)
+    transactions = get_recent_transactions(user_id)
+    categories   = get_category_breakdown(user_id)
 
     return render_template(
         "profile.html",
