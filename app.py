@@ -5,6 +5,7 @@ import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import check_password_hash
 from database.db import get_db, init_db, seed_db, create_user, get_user_by_email
+from database.db import add_expense as db_add_expense
 from database.queries import (
     get_user_by_id, get_summary_stats,
     get_recent_transactions, get_category_breakdown,
@@ -44,6 +45,9 @@ def _months_ago_start(today, n):
         month += 12
         year -= 1
     return datetime.date(year, month, 1).isoformat()
+
+
+ALLOWED_CATEGORIES = ("Food", "Transport", "Bills", "Health", "Entertainment", "Shopping", "Other")
 
 
 def _build_presets(today):
@@ -137,6 +141,13 @@ def login():
     return render_template("login.html")
 
 
+@app.route("/analytics")
+def analytics():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+    return render_template("analytics.html")
+
+
 @app.route("/terms")
 def terms():
     return render_template("terms.html")
@@ -198,9 +209,58 @@ def profile():
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
 
-@app.route("/expenses/add")
+def _add_expense_form(error, today, amount="", category="", date="", description=""):
+    return render_template(
+        "add_expense.html",
+        error=error,
+        categories=ALLOWED_CATEGORIES,
+        today=today,
+        amount=amount, category=category, date=date, description=description,
+    )
+
+
+@app.route("/expenses/add", methods=["GET", "POST"])
 def add_expense():
-    return "Add expense — coming in Step 7"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    today = datetime.date.today().isoformat()
+
+    if request.method == "POST":
+        raw_amount  = request.form.get("amount", "").strip()
+        category    = request.form.get("category", "").strip()
+        date        = request.form.get("date", "").strip()
+        description = request.form.get("description", "").strip()
+
+        def _form_err(msg):
+            return _add_expense_form(msg, today, raw_amount, category, date, description)
+
+        try:
+            amount = float(raw_amount)
+            if amount <= 0 or amount > 9_999_999.99:
+                raise ValueError
+        except ValueError:
+            return _form_err("Amount must be a positive number (max ₹99,99,999.99).")
+
+        if category not in ALLOWED_CATEGORIES:
+            return _form_err("Please select a valid category.")
+
+        if not _parse_iso_date(date):
+            return _form_err("Please enter a valid date (YYYY-MM-DD).")
+
+        if len(description) > 200:
+            return _form_err("Description must be 200 characters or fewer.")
+
+        db_add_expense(session["user_id"], amount, category, date, description)
+        flash("Expense added successfully.", "success")
+        return redirect(url_for("profile"))
+
+    return render_template(
+        "add_expense.html",
+        categories=ALLOWED_CATEGORIES,
+        today=today,
+        amount="", category="", date=today, description="",
+    )
 
 
 @app.route("/expenses/<int:id>/edit")

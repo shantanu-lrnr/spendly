@@ -1,0 +1,57 @@
+/* ------------------------------------------------------------------ */
+/* Add Expense page                                                    */
+/* ------------------------------------------------------------------ */
+
+.add-amount-wrap {
+    position: relative;
+}
+
+.add-amount-wrap::before {
+    content: "₹";
+    position: absolute;
+    left: 0.875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+    pointer-events: none;
+}
+
+.add-amount-input {
+    padding-left: 2rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Remove browser default number input spinners */
+.add-amount-input::-webkit-outer-spin-button,
+.add-amount-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.add-amount-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.add-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    padding-right: 2.25rem;
+    cursor: pointer;
+}
+
+.add-help {
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    margin-top: 0.3rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive                                                          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 600px) {
+    .add-amount-input { font-size: 1rem; }
+}
