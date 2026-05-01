@@ -1,3 +1,5 @@
+import datetime
+import os
 import sqlite3
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session
@@ -9,11 +11,47 @@ from database.queries import (
 )
 
 app = Flask(__name__)
-app.secret_key = "dev-secret-key"
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 with app.app_context():
     init_db()
     seed_db()
+
+
+def _parse_iso_date(value):
+    if not value:
+        return None
+    try:
+        datetime.date.fromisoformat(value)
+        return value
+    except ValueError:
+        return None
+
+
+def _format_label(value):
+    if not value:
+        return None
+    try:
+        return datetime.date.fromisoformat(value).strftime("%d %b %Y")
+    except ValueError:
+        return None
+
+
+def _months_ago_start(today, n):
+    month = today.month - n
+    year = today.year
+    while month <= 0:
+        month += 12
+        year -= 1
+    return datetime.date(year, month, 1).isoformat()
+
+
+def _build_presets(today):
+    return {
+        "this_month":    (today.replace(day=1).isoformat(), today.isoformat()),
+        "last_3_months": (_months_ago_start(today, 3), today.isoformat()),
+        "last_6_months": (_months_ago_start(today, 6), today.isoformat()),
+    }
 
 
 # ------------------------------------------------------------------ #
@@ -121,10 +159,25 @@ def profile():
         return redirect(url_for("login"))
 
     user_id = session["user_id"]
+
+    date_from = _parse_iso_date(request.args.get("date_from"))
+    date_to   = _parse_iso_date(request.args.get("date_to"))
+
     user         = get_user_by_id(user_id)
-    stats        = get_summary_stats(user_id)
-    transactions = get_recent_transactions(user_id)
-    categories   = get_category_breakdown(user_id)
+    stats        = get_summary_stats(user_id, date_from=date_from, date_to=date_to)
+    transactions = get_recent_transactions(user_id, date_from=date_from, date_to=date_to)
+    categories   = get_category_breakdown(user_id, date_from=date_from, date_to=date_to)
+
+    presets = _build_presets(datetime.date.today())
+
+    active_preset = None
+    if date_from is None and date_to is None:
+        active_preset = "all_time"
+    else:
+        for name, (p_from, p_to) in presets.items():
+            if date_from == p_from and date_to == p_to:
+                active_preset = name
+                break
 
     return render_template(
         "profile.html",
@@ -132,6 +185,12 @@ def profile():
         stats=stats,
         transactions=transactions,
         categories=categories,
+        date_from=date_from,
+        date_to=date_to,
+        active_preset=active_preset,
+        presets=presets,
+        filter_label_from=_format_label(date_from),
+        filter_label_to=_format_label(date_to),
     )
 
 
@@ -155,4 +214,4 @@ def delete_expense(id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=5001)
