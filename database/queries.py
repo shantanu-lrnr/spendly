@@ -77,7 +77,7 @@ def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
     date_sql, date_params = _date_clause(date_from, date_to)
 
     rows = conn.execute(
-        "SELECT date, description, category, amount "
+        "SELECT id, date, description, category, amount "
         "FROM expenses WHERE user_id = ?" + date_sql + " "
         "ORDER BY date DESC, id DESC "
         "LIMIT ?",
@@ -90,6 +90,7 @@ def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
 
     return [
         {
+            "id": row["id"],
             "date": row["date"],
             "description": row["description"],
             "category": row["category"],

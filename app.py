@@ -2,10 +2,11 @@ import datetime
 import os
 import sqlite3
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
 from werkzeug.security import check_password_hash
 from database.db import get_db, init_db, seed_db, create_user, get_user_by_email
 from database.db import add_expense as db_add_expense
+from database.db import update_expense as db_update_expense, get_expense_by_id
 from database.queries import (
     get_user_by_id, get_summary_stats,
     get_recent_transactions, get_category_breakdown,
@@ -209,6 +210,16 @@ def profile():
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
 
+def _edit_expense_form(expense_id, error, amount, category, date, description):
+    return render_template(
+        "edit_expense.html",
+        expense_id=expense_id,
+        error=error,
+        categories=ALLOWED_CATEGORIES,
+        amount=amount, category=category, date=date, description=description,
+    )
+
+
 def _add_expense_form(error, today, amount="", category="", date="", description=""):
     return render_template(
         "add_expense.html",
@@ -263,9 +274,55 @@ def add_expense():
     )
 
 
-@app.route("/expenses/<int:id>/edit")
+@app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
 def edit_expense(id):
-    return "Edit expense — coming in Step 8"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    expense = get_expense_by_id(id)
+    if expense is None:
+        abort(404)
+    if expense["user_id"] != session["user_id"]:
+        abort(403)
+
+    if request.method == "POST":
+        raw_amount  = request.form.get("amount", "").strip()
+        category    = request.form.get("category", "").strip()
+        date        = request.form.get("date", "").strip()
+        description = request.form.get("description", "").strip()
+
+        def _form_err(msg):
+            return _edit_expense_form(id, msg, raw_amount, category, date, description)
+
+        try:
+            amount = float(raw_amount)
+            if amount <= 0 or amount > 9_999_999.99:
+                raise ValueError
+        except ValueError:
+            return _form_err("Amount must be a positive number (max ₹99,99,999.99).")
+
+        if category not in ALLOWED_CATEGORIES:
+            return _form_err("Please select a valid category.")
+
+        if not _parse_iso_date(date):
+            return _form_err("Please enter a valid date (YYYY-MM-DD).")
+
+        if len(description) > 200:
+            return _form_err("Description must be 200 characters or fewer.")
+
+        db_update_expense(id, session["user_id"], amount, category, date, description)
+        flash("Expense updated successfully.", "success")
+        return redirect(url_for("profile"))
+
+    return render_template(
+        "edit_expense.html",
+        expense_id=id,
+        categories=ALLOWED_CATEGORIES,
+        amount=f"{expense['amount']:.2f}",
+        category=expense["category"],
+        date=expense["date"],
+        description=expense["description"] or "",
+    )
 
 
 @app.route("/expenses/<int:id>/delete")
