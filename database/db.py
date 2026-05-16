@@ -62,6 +62,30 @@ def add_expense(user_id, amount, category, date, description):
     return expense_id
 
 
+def update_expense(expense_id, user_id, amount, category, date, description):
+    conn = get_db()
+    cursor = conn.execute(
+        "UPDATE expenses SET amount = ?, category = ?, date = ?, description = ? "
+        "WHERE id = ? AND user_id = ?",
+        (amount, category, date, description or None, expense_id, user_id),
+    )
+    conn.commit()
+    rowcount = cursor.rowcount
+    conn.close()
+    return rowcount
+
+
+def get_expense_by_id(expense_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, user_id, amount, category, date, description "
+        "FROM expenses WHERE id = ?",
+        (expense_id,),
+    ).fetchone()
+    conn.close()
+    return row
+
+
 def get_user_by_email(email):
     conn = get_db()
     row = conn.execute(
